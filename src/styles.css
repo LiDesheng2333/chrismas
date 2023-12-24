@@ -429,8 +429,8 @@ img {
 }
 
 #playButton {
-  position: absolute;
-  bottom: 50px; /* 距离底部的距离，根据需要调整 */
+  position: fixed;
+  bottom: 30px; /* 距离底部的距离，根据需要调整 */
   left: 55%; /* 将按钮居中 */
   transform: translateX(-50%); /* 使按钮在水平方向上居中 */
   background: #eb94d0;
