@@ -1,17 +1,80 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
+  <head>
+    <link
+      href="https://fonts.googleapis.com/css?family=Archivo+Narrow|Cookie&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <audio id="myAudio">
+      <source src="https://api.cs2box.top/christmas.mp3" type="audio/mp3" />
+      Your browser does not support the audio element.
+    </audio>
+    <div class="card">
+      <div class="back">
+        <div class="message">
+          <h5>Dear WeiHongHong,</h5>
+          <p>
+            Your smile is as beautiful as rose,hope you can always smile.
+            (✿◡w◡) And Stay up late less and eat well
+            May the magic of Christmas fill every corner of your heart and home with joy — now and always.
+          </p>
+          <h5 class="cookie">Mr.  Li</h5>
+        </div>
+      </div>
+      <div class="page">
+        <div class="rose">
+          <div class="flower">
+            <div class="petal"></div>
+            <div class="petal"></div>
+            <div class="petal"></div>
+            <div class="petal"></div>
+            <div class="petal"></div>
+          </div>
+          <div class="leaf">
+            <div class="stem"></div>
+            <div class="leafs"></div>
+            <div class="leafs"></div>
+          </div>
+        </div>
+      </div>
+      <div class="front">
+        <div class="card-front">
+          <div class="christmas-tree"></div>
+          <div class="ribbon"></div>
+          <div class="text"></div>
+          <div class="star"></div>
+          <div class="balls"></div>
+        </div>
+      </div>
+    </div>
+    <button id="playButton">点击播放音乐</button>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        var audio = document.getElementById("myAudio");
+        audio.volume = 0.5;
+        var playButton = document.getElementById("playButton");
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
-  <title>Vanilla JavaScript App</title>
-</head>
+        audio.addEventListener("ended", function () {
+          playButton.textContent = "点击播放音乐";
+        });
 
-<body>
-  <main>
-    <h1>Vanilla JavaScript App</h1>
-  </main>
-</body>
+        playButton.addEventListener("click", function () {
+          if (audio.paused) {
+            audio.play();
+            playButton.textContent = "Pause";
+          } else {
+            audio.pause();
+            playButton.textContent = "点击播放音乐";
+          }
+        });
+      });
 
+      function setVolume(volume) {
+        var audio = document.getElementById("myAudio");
+        audio.volume = volume;
+      }
+    </script>
+  </body>
 </html>
