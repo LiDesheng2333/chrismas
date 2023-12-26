@@ -1,80 +1,159 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
-    <link
-      href="https://fonts.googleapis.com/css?family=Archivo+Narrow|Cookie&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" type="text/css" href="styles.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link rel="stylesheet" type="text/css" href="style5.css" />
   </head>
   <body>
-    <audio id="myAudio">
-      <source src="https://api.cs2box.top/christmas.mp3" type="audio/mp3" />
-      Your browser does not support the audio element.
-    </audio>
-    <div class="card">
-      <div class="back">
-        <div class="message">
-          <h5>Dear WeiHongHong,</h5>
-          <p>
-            Your smile is as beautiful as rose,hope you can always smile.
-            And Stay up late less ,eat well
-            May the magic of Christmas fill every corner of your heart and home with joy , now and always.
-          </p>
-          <h5 class="cookie">Mr.  Li</h5>
-        </div>
-      </div>
-      <div class="page">
-        <div class="rose">
-          <div class="flower">
-            <div class="petal"></div>
-            <div class="petal"></div>
-            <div class="petal"></div>
-            <div class="petal"></div>
-            <div class="petal"></div>
-          </div>
-          <div class="leaf">
-            <div class="stem"></div>
-            <div class="leafs"></div>
-            <div class="leafs"></div>
-          </div>
-        </div>
-      </div>
-      <div class="front">
-        <div class="card-front">
-          <div class="christmas-tree"></div>
-          <div class="ribbon"></div>
-          <div class="text"></div>
-          <div class="star"></div>
-          <div class="balls"></div>
-        </div>
-      </div>
-    </div>
-    <button id="playButton">Play Music</button>
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="terCanvas"></canvas>
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        var audio = document.getElementById("myAudio");
-        audio.volume = 0.5;
-        var playButton = document.getElementById("playButton");
+        (function() {
+    var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || 
+								  window.webkitRequestAnimationFrame || window.msRequestAnimationFrame || function( callback ){
+                window.setTimeout(callback, 1000 / 60);
+              };
+	  window.requestAnimationFrame = requestAnimationFrame;
+	})();
 
-        audio.addEventListener("ended", function () {
-          playButton.textContent = "Play Music";
-        });
+	// Terrain stuff.
+	var terrain = document.getElementById("terCanvas"),
+		background = document.getElementById("bgCanvas"),
+		terCtx = terrain.getContext("2d"),
+		bgCtx = background.getContext("2d"),
+		width = window.innerWidth,
+		height = document.body.offsetHeight;
+    (height < 400)?height = 400:height;
 
-        playButton.addEventListener("click", function () {
-          if (audio.paused) {
-            audio.play();
-            playButton.textContent = "Pause";
-          } else {
-            audio.pause();
-            playButton.textContent = "Play Music";
-          }
-        });
-      });
+	terrain.width = background.width = width;
+	terrain.height = background.height = height;
 
-      function setVolume(volume) {
-        var audio = document.getElementById("myAudio");
-        audio.volume = volume;
-      }
+	// Some random points
+	var points = [],
+		displacement = 140,
+		power = Math.pow(2,Math.ceil(Math.log(width)/(Math.log(2))));
+	
+	// set the start height and end height for the terrain
+	points[0] = (height - (Math.random()*height/2))-displacement;
+	points[power] = (height - (Math.random()*height/2))-displacement;
+
+	// create the rest of the points
+	for(var i = 1; i<power; i*=2){
+		for(var j = (power/i)/2; j <power; j+=power/i){
+			points[j] = ((points[j - (power/i)/2] + points[j + (power/i)/2]) / 2) + Math.floor(Math.random()*-displacement+displacement );
+		}
+		displacement *= 0.6;
+	}
+
+	// draw the terrain
+	terCtx.beginPath();
+					
+	for(var i = 0; i<=width; i++){
+		if(i === 0){
+			terCtx.moveTo(0, points[0]);
+		}else if(points[i] !== undefined){
+			terCtx.lineTo(i, points[i]);
+		}
+	}
+
+	terCtx.lineTo(width,terrain.height);
+	terCtx.lineTo(0,terrain.height);
+	terCtx.lineTo(0,points[0]);
+	terCtx.fill();
+
+
+	// Second canvas used for the stars
+	bgCtx.fillStyle = '#05004c';
+	bgCtx.fillRect(0,0,width,height);
+
+	// stars
+	function Star(options){
+		this.size = Math.random()*2;
+		this.speed = Math.random()*.1;
+		this.x = options.x;
+		this.y = options.y;
+	}
+
+	Star.prototype.reset = function(){
+		this.size = Math.random()*2;
+		this.speed = Math.random()*.1;
+		this.x = width;
+		this.y = Math.random()*height;
+	}
+	
+	Star.prototype.update = function(){
+		this.x-=this.speed;
+		if(this.x<0){
+		  this.reset();
+		}else{
+		  bgCtx.fillRect(this.x,this.y,this.size,this.size); 
+		}
+	}
+	
+	function ShootingStar(){
+		this.reset();
+	}
+	
+	ShootingStar.prototype.reset = function(){
+		this.x = Math.random()*width;
+		this.y = 0;
+		this.len = (Math.random()*80)+10;
+		this.speed = (Math.random()*10)+6;
+		this.size = (Math.random()*1)+0.1;
+    // this is used so the shooting stars arent constant
+		this.waitTime =  new Date().getTime() + (Math.random()*3000)+500;
+		this.active = false;
+	}
+	
+	ShootingStar.prototype.update = function(){
+		if(this.active){
+			this.x-=this.speed;
+			this.y+=this.speed;
+			if(this.x<0 || this.y >= height){
+			  this.reset();
+			}else{
+			bgCtx.lineWidth = this.size;
+				bgCtx.beginPath();
+				bgCtx.moveTo(this.x,this.y);
+				bgCtx.lineTo(this.x+this.len, this.y-this.len);
+				bgCtx.stroke();
+			}
+		}else{
+			if(this.waitTime < new Date().getTime()){
+				this.active = true;
+			}			
+		}
+	}
+
+	var entities = [];
+	
+	// init the stars
+	for(var i=0; i < height; i++){
+		entities.push(new Star({x:Math.random()*width, y:Math.random()*height}));
+	}
+  
+	// Add 2 shooting stars that just cycle.
+	entities.push(new ShootingStar());
+	entities.push(new ShootingStar());
+	
+	//animate background
+	function animate(){
+		bgCtx.fillStyle = '#05004c';
+		bgCtx.fillRect(0,0,width,height);
+		bgCtx.fillStyle = '#ffffff';
+		bgCtx.strokeStyle = '#ffffff';
+
+		var entLen = entities.length;
+	  
+		while(entLen--){
+			entities[entLen].update();
+		}
+		
+		requestAnimationFrame(animate);
+	}
+	animate();
     </script>
   </body>
 </html>
