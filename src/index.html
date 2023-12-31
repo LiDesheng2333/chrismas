@@ -1,159 +1,285 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-    <link rel="stylesheet" type="text/css" href="style5.css" />
-  </head>
-  <body>
-    <canvas id="bgCanvas"></canvas>
-    <canvas id="terCanvas"></canvas>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy New Year!</title>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+<body>
+    <canvas id=c></canvas>
     <script>
-        (function() {
-    var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || 
-								  window.webkitRequestAnimationFrame || window.msRequestAnimationFrame || function( callback ){
-                window.setTimeout(callback, 1000 / 60);
-              };
-	  window.requestAnimationFrame = requestAnimationFrame;
-	})();
 
-	// Terrain stuff.
-	var terrain = document.getElementById("terCanvas"),
-		background = document.getElementById("bgCanvas"),
-		terCtx = terrain.getContext("2d"),
-		bgCtx = background.getContext("2d"),
-		width = window.innerWidth,
-		height = document.body.offsetHeight;
-    (height < 400)?height = 400:height;
+var gl = c.getContext( 'webgl', { preserveDrawingBuffer: true } )
+	,	w = c.width = window.innerWidth
+	,	h = c.height = window.innerHeight
 
-	terrain.width = background.width = width;
-	terrain.height = background.height = height;
+	,	webgl = {}
+	,	opts = {
+		projectileAlpha: .8,
+		projectileLineWidth: 1.3,
+		fireworkAngleSpan: .5,
+		baseFireworkVel: 3,
+		addedFireworkVel: 3,
+		gravity: .03,
+		lowVelBoundary: -.2,
+		xFriction: .995,
+		baseShardVel: 1,
+		addedShardVel: .2,
+		fireworks: 1000,
+		baseShardsParFirework: 10,
+		addedShardsParFirework: 10,
+		shardFireworkVelMultiplier: .3,
+		initHueMultiplier: 1/360,
+		runHueAdder: .1/360
+	}
 
-	// Some random points
-	var points = [],
-		displacement = 140,
-		power = Math.pow(2,Math.ceil(Math.log(width)/(Math.log(2))));
+webgl.vertexShaderSource = `
+uniform int u_mode;
+uniform vec2 u_res;
+attribute vec4 a_data;
+varying vec4 v_color;
+
+vec3 h2rgb( float h ){
+	return clamp( abs( mod( h * 6. + vec3( 0, 4, 2 ), 6. ) - 3. ) -1., 0., 1. );
+}
+void clear(){
+	gl_Position = vec4( a_data.xy, 0, 1 );
+	v_color = vec4( 0, 0, 0, a_data.w );
+}
+void draw(){
+	gl_Position = vec4( vec2( 1, -1 ) * ( ( a_data.xy / u_res ) * 2. - 1. ), 0, 1 );
+	v_color = vec4( h2rgb( a_data.z ), a_data.w );
+}
+void main(){
+	if( u_mode == 0 )
+		draw();
+	else
+		clear();
+}
+`;
+webgl.fragmentShaderSource = `
+precision mediump float;
+varying vec4 v_color;
+
+void main(){
+	gl_FragColor = v_color;
+}
+`;
+
+webgl.vertexShader = gl.createShader( gl.VERTEX_SHADER );
+gl.shaderSource( webgl.vertexShader, webgl.vertexShaderSource );
+gl.compileShader( webgl.vertexShader );
+
+webgl.fragmentShader = gl.createShader( gl.FRAGMENT_SHADER );
+gl.shaderSource( webgl.fragmentShader, webgl.fragmentShaderSource );
+gl.compileShader( webgl.fragmentShader );
+
+webgl.shaderProgram = gl.createProgram();
+gl.attachShader( webgl.shaderProgram, webgl.vertexShader );
+gl.attachShader( webgl.shaderProgram, webgl.fragmentShader );
+
+gl.linkProgram( webgl.shaderProgram );
+gl.useProgram( webgl.shaderProgram );
+
+webgl.dataAttribLoc = gl.getAttribLocation( webgl.shaderProgram, 'a_data' );
+webgl.dataBuffer = gl.createBuffer();
+
+gl.enableVertexAttribArray( webgl.dataAttribLoc );
+gl.bindBuffer( gl.ARRAY_BUFFER, webgl.dataBuffer );
+gl.vertexAttribPointer( webgl.dataAttribLoc, 4, gl.FLOAT, false, 0, 0 );
+
+webgl.resUniformLoc = gl.getUniformLocation( webgl.shaderProgram, 'u_res' );
+webgl.modeUniformLoc = gl.getUniformLocation( webgl.shaderProgram, 'u_mode' );
+
+gl.viewport( 0, 0, w, h );
+gl.uniform2f( webgl.resUniformLoc, w, h );
+
+gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
+gl.enable( gl.BLEND );
+
+gl.lineWidth( opts.projectileLineWidth );
+
+webgl.data = [];
+
+webgl.clear = function(){
 	
-	// set the start height and end height for the terrain
-	points[0] = (height - (Math.random()*height/2))-displacement;
-	points[power] = (height - (Math.random()*height/2))-displacement;
-
-	// create the rest of the points
-	for(var i = 1; i<power; i*=2){
-		for(var j = (power/i)/2; j <power; j+=power/i){
-			points[j] = ((points[j - (power/i)/2] + points[j + (power/i)/2]) / 2) + Math.floor(Math.random()*-displacement+displacement );
-		}
-		displacement *= 0.6;
-	}
-
-	// draw the terrain
-	terCtx.beginPath();
-					
-	for(var i = 0; i<=width; i++){
-		if(i === 0){
-			terCtx.moveTo(0, points[0]);
-		}else if(points[i] !== undefined){
-			terCtx.lineTo(i, points[i]);
-		}
-	}
-
-	terCtx.lineTo(width,terrain.height);
-	terCtx.lineTo(0,terrain.height);
-	terCtx.lineTo(0,points[0]);
-	terCtx.fill();
-
-
-	// Second canvas used for the stars
-	bgCtx.fillStyle = '#05004c';
-	bgCtx.fillRect(0,0,width,height);
-
-	// stars
-	function Star(options){
-		this.size = Math.random()*2;
-		this.speed = Math.random()*.1;
-		this.x = options.x;
-		this.y = options.y;
-	}
-
-	Star.prototype.reset = function(){
-		this.size = Math.random()*2;
-		this.speed = Math.random()*.1;
-		this.x = width;
-		this.y = Math.random()*height;
-	}
+	gl.uniform1i( webgl.modeUniformLoc, 1 );
+	var a = .1;
+	webgl.data = [
+		-1, -1, 0, a,
+		 1, -1, 0, a,
+		-1,  1, 0, a,
+		-1,  1, 0, a,
+		 1, -1, 0, a,
+		 1,  1, 0, a
+	];
+	webgl.draw( gl.TRIANGLES );
+	gl.uniform1i( webgl.modeUniformLoc, 0 );
+	webgl.data.length = 0;
+}
+webgl.draw = function( glType ){
 	
-	Star.prototype.update = function(){
-		this.x-=this.speed;
-		if(this.x<0){
-		  this.reset();
-		}else{
-		  bgCtx.fillRect(this.x,this.y,this.size,this.size); 
-		}
-	}
+	gl.bufferData( gl.ARRAY_BUFFER, new Float32Array( webgl.data ), gl.STATIC_DRAW );
+	gl.drawArrays( glType, 0, webgl.data.length / 4 );
+}
+
+var	fireworks = []
+	,	tick = 0
+	,	sins = []
+	,	coss = []
+	,	maxShardsParFirework = opts.baseShardsParFirework + opts.addedShardsParFirework
+	,	tau = 6.283185307179586476925286766559;
+
+for( var i = 0; i < maxShardsParFirework; ++i ){
+	sins[ i ] = Math.sin( tau * i / maxShardsParFirework );
+	coss[ i ] = Math.cos( tau * i / maxShardsParFirework );
+}
+
+function Firework(){
+	this.reset();
+	this.shards = [];
+	for( var i = 0; i < maxShardsParFirework; ++i )
+		this.shards.push( new Shard( this ) );
+}
+Firework.prototype.reset = function(){
 	
-	function ShootingStar(){
-		this.reset();
-	}
+	var angle = -Math.PI / 2 + ( Math.random() - .5 )* opts.fireworkAngleSpan
+		,	vel = opts.baseFireworkVel + opts.addedFireworkVel * Math.random();
 	
-	ShootingStar.prototype.reset = function(){
-		this.x = Math.random()*width;
-		this.y = 0;
-		this.len = (Math.random()*80)+10;
-		this.speed = (Math.random()*10)+6;
-		this.size = (Math.random()*1)+0.1;
-    // this is used so the shooting stars arent constant
-		this.waitTime =  new Date().getTime() + (Math.random()*3000)+500;
-		this.active = false;
-	}
+	this.mode = 0;
+	this.vx = vel * Math.cos( angle );
+	this.vy = vel * Math.sin( angle );
 	
-	ShootingStar.prototype.update = function(){
-		if(this.active){
-			this.x-=this.speed;
-			this.y+=this.speed;
-			if(this.x<0 || this.y >= height){
-			  this.reset();
-			}else{
-			bgCtx.lineWidth = this.size;
-				bgCtx.beginPath();
-				bgCtx.moveTo(this.x,this.y);
-				bgCtx.lineTo(this.x+this.len, this.y-this.len);
-				bgCtx.stroke();
+	this.x = Math.random() * w;
+	this.y = h;
+	
+	this.hue = tick * opts.initHueMultiplier;
+	
+}
+Firework.prototype.step = function(){
+	
+	if( this.mode === 0 ){
+		
+		var ph = this.hue
+			,	px = this.x
+			,	py = this.y;
+		
+		this.hue += opts.runHueAdder;
+	
+		this.x += this.vx *= opts.xFriction;
+		this.y += this.vy += opts.gravity;
+		
+		webgl.data.push(
+			px, py, ph, opts.projectileAlpha * .2,
+			this.x, this.y, this.hue, opts.projectileAlpha * .2 );
+		
+		if( this.vy >= opts.lowVelBoundary ){
+			this.mode = 1;
+
+			this.shardAmount = opts.baseShardsParFirework + opts.addedShardsParFirework * Math.random() | 0;
+
+			var baseAngle = Math.random() * tau
+				,	x = Math.cos( baseAngle )
+				,	y = Math.sin( baseAngle )
+				,	sin = sins[ this.shardAmount ]
+				,	cos = coss[ this.shardAmount ];
+
+			for( var i = 0; i < this.shardAmount; ++i ){
+
+				var vel = opts.baseShardVel + opts.addedShardVel * Math.random();
+				this.shards[ i ].reset( x * vel, y * vel )
+				var X = x;
+				x = x * cos - y * sin;
+				y = y * cos + X * sin;
 			}
-		}else{
-			if(this.waitTime < new Date().getTime()){
-				this.active = true;
-			}			
 		}
-	}
 
-	var entities = [];
-	
-	// init the stars
-	for(var i=0; i < height; i++){
-		entities.push(new Star({x:Math.random()*width, y:Math.random()*height}));
-	}
-  
-	// Add 2 shooting stars that just cycle.
-	entities.push(new ShootingStar());
-	entities.push(new ShootingStar());
-	
-	//animate background
-	function animate(){
-		bgCtx.fillStyle = '#05004c';
-		bgCtx.fillRect(0,0,width,height);
-		bgCtx.fillStyle = '#ffffff';
-		bgCtx.strokeStyle = '#ffffff';
-
-		var entLen = entities.length;
-	  
-		while(entLen--){
-			entities[entLen].update();
+	} else if( this.mode === 1 ) {
+		
+		this.ph = this.hue
+		this.hue += opts.runHueAdder;
+		
+		var allDead = true;
+		for( var i = 0; i < this.shardAmount; ++i ){
+			var shard = this.shards[ i ];
+			if( !shard.dead ){
+				shard.step();
+				allDead = false;
+			}
 		}
 		
-		requestAnimationFrame(animate);
+		if( allDead )
+			this.reset();
 	}
-	animate();
+	
+}
+function Shard( parent ){
+	this.parent = parent;
+}
+Shard.prototype.reset = function( vx, vy ){
+	this.x = this.parent.x;
+	this.y = this.parent.y;
+	this.vx = this.parent.vx * opts.shardFireworkVelMultiplier + vx;
+	this.vy = this.parent.vy * opts.shardFireworkVelMultiplier + vy;
+	this.starty = this.y;
+	this.dead = false;
+	this.tick = 1;
+}
+Shard.prototype.step = function(){
+	
+	this.tick += .05;
+	
+	var px = this.x
+		,	py = this.y;
+	
+	this.x += this.vx *= opts.xFriction;
+	this.y += this.vy += opts.gravity;
+	
+	var proportion = 1 - ( this.y - this.starty ) / ( h - this.starty );
+	
+	webgl.data.push(
+		px, py, this.parent.ph, opts.projectileAlpha / this.tick,
+		this.x, this.y, this.parent.hue, opts.projectileAlpha / this.tick );
+	
+	if( this.y > h )
+		this.dead = true;
+}
+
+function anim(){
+	
+	window.requestAnimationFrame( anim )
+	
+	webgl.clear();
+	
+	++tick;
+	
+	if( fireworks.length < opts.fireworks )
+		fireworks.push( new Firework );
+	
+	fireworks.map( function( firework ){ firework.step(); } );
+	
+	webgl.draw( gl.LINES );
+}
+anim();
+
+window.addEventListener( 'resize', function(){
+	
+	w = c.width = window.innerWidth;
+	h = c.height = window.innerHeight;
+	
+	gl.viewport( 0, 0, w, h );
+	gl.uniform2f( webgl.resUniformLoc, w, h );
+})
+window.addEventListener( 'click', function( e ){
+	var firework = new Firework();
+	firework.x = e.clientX;
+	firework.y = e.clientY;
+	firework.vx = 0;
+	firework.vy = 0;
+	fireworks.push( firework );
+});
+        
     </script>
-  </body>
+</body>
 </html>
